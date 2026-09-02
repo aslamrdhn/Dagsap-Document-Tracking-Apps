@@ -1,10 +1,11 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @media print {
   body * {
     visibility: hidden;
   }
-  #printable-label, #printable-label * {
+  #printable-label,
+  #printable-label * {
     visibility: visible;
   }
   #printable-label {

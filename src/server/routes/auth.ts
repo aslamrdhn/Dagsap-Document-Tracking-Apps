@@ -1,31 +1,124 @@
-import { Router } from "express";
-import bcrypt from "bcryptjs";
-import { prisma } from "../db";
-import { generateToken } from "../auth";
-import { authenticate, AuthRequest } from "../middleware/authMiddleware";
+import { Router } from 'express';
+import bcrypt from 'bcryptjs';
+import { prisma } from '../db';
+import { generateToken, generateRefreshToken, verifyRefreshToken } from '../auth';
+import { authenticate, AuthRequest } from '../middleware/authMiddleware';
 
 const router = Router();
 
-router.post("/login", async (req, res) => {
-  const { email, password } = req.body;
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!user || !user.active) return res.status(401).json({ error: "Invalid credentials" });
-  
-  const valid = await bcrypt.compare(password, user.password);
-  if (!valid) return res.status(401).json({ error: "Invalid credentials" });
-  
-  const token = generateToken({ userId: user.id, role: user.role });
-  res.cookie("token", token, { httpOnly: true, secure: process.env.NODE_ENV === "production" });
-  
-  res.json({ token, user: { id: user.id, name: user.name, role: user.role, defaultLocationId: user.defaultLocationId } });
+/**
+ * @swagger
+ * /api/auth/login:
+ *   post:
+ *     summary: Authenticate user
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *       401:
+ *         description: Invalid credentials
+ */
+router.post('/login', async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user || !user.active) return res.status(401).json({ error: 'Invalid credentials' });
+
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
+
+    const token = generateToken({ userId: user.id, role: user.role });
+    const refreshToken = generateRefreshToken({ userId: user.id, role: user.role });
+
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+    });
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        role: user.role,
+        defaultLocationId: user.defaultLocationId,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
-router.post("/logout", (req, res) => {
-  res.clearCookie("token");
+/**
+ * @swagger
+ * /api/auth/refresh:
+ *   post:
+ *     summary: Refresh access token
+ *     tags: [Auth]
+ *     responses:
+ *       200:
+ *         description: Token refreshed
+ *       401:
+ *         description: Invalid or missing refresh token
+ */
+router.post('/refresh', (req, res, next) => {
+  try {
+    const refreshToken = req.cookies?.refreshToken;
+    if (!refreshToken) return res.status(401).json({ error: 'No refresh token provided' });
+
+    const decoded: any = verifyRefreshToken(refreshToken);
+    if (!decoded || !decoded.userId)
+      return res.status(401).json({ error: 'Invalid refresh token' });
+
+    const token = generateToken({ userId: decoded.userId, role: decoded.role });
+    res.json({ token });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * @swagger
+ * /api/auth/logout:
+ *   post:
+ *     summary: Logout user
+ *     tags: [Auth]
+ *     responses:
+ *       200:
+ *         description: Logout successful
+ */
+router.post('/logout', (req, res) => {
+  res.clearCookie('token');
+  res.clearCookie('refreshToken');
   res.json({ success: true });
 });
 
-router.get("/me", authenticate, (req: AuthRequest, res) => {
+/**
+ * @swagger
+ * /api/auth/me:
+ *   get:
+ *     summary: Get current user profile
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/me', authenticate, (req: AuthRequest, res) => {
   res.json({ user: req.user });
 });
 

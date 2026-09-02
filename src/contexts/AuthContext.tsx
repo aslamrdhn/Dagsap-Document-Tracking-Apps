@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { fetchApi } from '../lib/api';
 
 interface User {
   id: string;
@@ -11,7 +12,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (token: string, user: User) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>(null as any);
@@ -21,14 +22,33 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // In a real app, verify token via API. For simplicity here, check if logged in state exists in localStorage
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
+    const verifySession = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
       try {
-        setUser(JSON.parse(savedUser));
-      } catch(e){}
-    }
-    setLoading(false);
+        const res = await fetchApi('/api/auth/me');
+        if (res.ok) {
+          const data = await res.json();
+          setUser(data.user);
+          localStorage.setItem('user', JSON.stringify(data.user));
+        } else {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          setUser(null);
+        }
+      } catch (e) {
+        // network error, maybe keep old user if exists
+        const savedUser = localStorage.getItem('user');
+        if (savedUser) setUser(JSON.parse(savedUser));
+      } finally {
+        setLoading(false);
+      }
+    };
+    verifySession();
   }, []);
 
   const login = (token: string, userData: User) => {
@@ -37,16 +57,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser(userData);
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await fetchApi('/api/auth/logout', { method: 'POST' });
+    } catch (e) {}
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
-      {children}
-    </AuthContext.Provider>
+    <AuthContext.Provider value={{ user, loading, login, logout }}>{children}</AuthContext.Provider>
   );
 };
 
