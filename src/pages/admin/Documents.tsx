@@ -113,10 +113,10 @@ export default function Documents() {
                   <td className="p-4">
                     <button 
                       onClick={() => setQrModalDoc(doc)}
-                      className="text-slate-400 hover:text-slate-700 transition"
+                      className="flex items-center text-[#800000] hover:text-[#600000] font-bold text-[11px] bg-[#800000]/10 px-2 py-1 rounded transition"
                       title="View Label"
                     >
-                      <QRIcon size={18} />
+                      <QRIcon size={14} className="mr-1" /> Print QR
                     </button>
                   </td>
                 </tr>
@@ -168,13 +168,13 @@ export default function Documents() {
 
       <Modal isOpen={!!qrModalDoc} onClose={() => setQrModalDoc(null)} title="Document Label">
         {qrModalDoc && (
-          <div className="flex flex-col items-center p-6 space-y-6 text-center">
+          <div id="printable-label" className="flex flex-col items-center p-6 space-y-6 text-center bg-white">
             <QRCodeSVG value={qrModalDoc.documentNumber} size={200} level="H" />
             <div>
               <div className="text-2xl font-mono font-bold tracking-widest text-slate-800">{qrModalDoc.documentNumber}</div>
               <div className="text-slate-500 text-sm uppercase font-bold mt-2">Route: {qrModalDoc.originLocation?.code} to {qrModalDoc.destinationLocation?.code}</div>
             </div>
-            <button onClick={() => window.print()} className="bg-slate-800 text-white px-6 py-2 rounded-lg font-bold hover:bg-slate-900 transition w-full">Print Label</button>
+            <button onClick={() => { setTimeout(() => window.print(), 100); }} className="print:hidden bg-slate-800 text-white px-6 py-2 rounded-lg font-bold hover:bg-slate-900 transition w-full">Print Label</button>
           </div>
         )}
       </Modal>

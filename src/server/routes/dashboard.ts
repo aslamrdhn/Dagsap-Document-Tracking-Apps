@@ -24,12 +24,24 @@ router.get("/", async (req, res) => {
       }
     });
 
+    const recentEvents = await prisma.documentEvent.findMany({
+      take: 10,
+      orderBy: { timestamp: "desc" },
+      include: {
+        document: true,
+        user: true,
+        location: true
+      }
+    });
+
     res.json({
       stats: { total, inTransit, atTransit, overdue },
-      activeDocs
+      activeDocs,
+      recentEvents
     });
   } catch (err) {
     res.status(500).json({ error: "Server error" });
   }
 });
+
 export default router;

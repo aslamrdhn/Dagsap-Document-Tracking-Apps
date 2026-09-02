@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 export default function Dashboard() {
   const [stats, setStats] = useState({ total: 0, inTransit: 0, atTransit: 0, overdue: 0 });
   const [activeDocs, setActiveDocs] = useState<any[]>([]);
+  const [recentEvents, setRecentEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -15,6 +16,7 @@ export default function Dashboard() {
       .then(data => {
         if (data.stats) setStats(data.stats);
         if (data.activeDocs) setActiveDocs(data.activeDocs);
+        if (data.recentEvents) setRecentEvents(data.recentEvents);
         setLoading(false);
       })
       .catch(() => {
@@ -98,33 +100,27 @@ export default function Dashboard() {
               <div className="w-2 h-4 bg-[#800000] mr-2 rounded-sm"></div> Tracking Timeline
             </h3>
             <div className="space-y-6 relative border-l-2 border-slate-100 ml-2 pl-6">
-              <div className="relative">
-                <div className="absolute -left-[31px] top-1 w-4 h-4 bg-green-500 rounded-full border-4 border-white shadow-sm"></div>
-                <div className="text-[10px] font-bold text-slate-400 uppercase">14:32:05 — Handover</div>
-                <div className="text-sm font-semibold text-slate-700">Handover to Courier_C</div>
-                <div className="text-xs text-slate-500">Location: Transit Jakarta (TR01)</div>
-              </div>
-              <div className="relative">
-                <div className="absolute -left-[31px] top-1 w-4 h-4 bg-green-500 rounded-full border-4 border-white shadow-sm"></div>
-                <div className="text-[10px] font-bold text-slate-400 uppercase">11:15:20 — Transit Received</div>
-                <div className="text-sm font-semibold text-slate-700">Arrived at Transit Point</div>
-                <div className="text-xs text-slate-500">Location: Transit Jakarta (TR01)</div>
-              </div>
-              <div className="relative">
-                <div className="absolute -left-[31px] top-1 w-4 h-4 bg-slate-300 rounded-full border-4 border-white shadow-sm"></div>
-                <div className="text-[10px] font-bold text-slate-400 uppercase">09:45:00 — Dispatched</div>
-                <div className="text-sm font-semibold text-slate-700">Departure from Origin</div>
-                <div className="text-xs text-slate-500">Location: Head Office (OFC)</div>
-              </div>
-              <div className="relative opacity-40">
-                <div className="absolute -left-[31px] top-1 w-4 h-4 bg-slate-200 rounded-full border-4 border-white shadow-sm"></div>
-                <div className="text-[10px] font-bold text-slate-400 uppercase underline decoration-dotted">Expected Arrival</div>
-                <div className="text-sm font-semibold text-slate-700">Plant 1 (P01)</div>
-                <div className="text-xs text-slate-500">ETA: 17:30 (Today)</div>
-              </div>
+              {recentEvents.length === 0 ? (
+                <div className="text-sm text-slate-400">No recent events.</div>
+              ) : (
+                recentEvents.map((evt: any, idx: number) => {
+                  const isFirst = idx === 0;
+                  return (
+                    <div key={evt.id} className="relative">
+                      <div className={`absolute -left-[31px] top-1 w-4 h-4 rounded-full border-4 border-white shadow-sm ${isFirst ? 'bg-green-500' : 'bg-slate-300'}`}></div>
+                      <div className="text-[10px] font-bold text-slate-400 uppercase">
+                        {new Date(evt.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'})} — {evt.eventType.replace(/_/g, ' ')}
+                      </div>
+                      <div className="text-sm font-semibold text-slate-700">Doc: {evt.document?.documentNumber}</div>
+                      <div className="text-xs text-slate-500">
+                        By: {evt.user?.name} at {evt.location?.name || 'Unknown'}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
-          
           <div className="bg-[#1a1c23] rounded-2xl p-6 text-white shrink-0">
             <div className="text-xs font-bold text-white/50 uppercase tracking-widest mb-3">Direct Scan Utility</div>
             <div className="border-2 border-dashed border-white/20 rounded-xl h-24 flex items-center justify-center bg-white/5 cursor-pointer hover:bg-white/10 transition-colors">
