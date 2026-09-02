@@ -1,0 +1,221 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Model
+model User {
+  id              String         @id @default(uuid())
+  nik             String         @unique
+  name            String
+  phone           String?
+  email           String?        @unique
+  password        String
+  pin             String?
+  role            Role           @default(VIEWER)
+  active          Boolean        @default(true)
+  defaultLocationId String?
+  
+  defaultLocation Location?      @relation("UserDefaultLocation", fields: [defaultLocationId], references: [id])
+  
+  events          DocumentEvent[] @relation("EventUser")
+  auditLogs       AuditLog[]      @relation("AuditLogUser")
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  SENDER
+  COURIER
+  TRANSIT_OPERATOR
+  RECEIVER
+  VIEWER
+}
+
+enum LocationType {
+  OFFICE
+  PLANT
+  TRANSIT
+}
+
+model Location {
+  id              String         @id @default(uuid())
+  code            String         @unique
+  name            String
+  type            LocationType   @default(OFFICE)
+  active          Boolean        @default(true)
+  
+  users           User[]         @relation("UserDefaultLocation")
+  originDocs      Document[]     @relation("DocOrigin")
+  destDocs        Document[]     @relation("DocDest")
+  events          DocumentEvent[] @relation("EventLocation")
+  auditLogs       AuditLog[]      @relation("AuditLogLocation")
+  routeSteps      DocumentRouteStep[] @relation("LocationRouteStep")
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+model DocumentType {
+  id              String         @id @default(uuid())
+  name            String         @unique
+  description     String?
+  active          Boolean        @default(true)
+  
+  documents       Document[]     @relation("DocType")
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+model DocumentRoute {
+  id              String         @id @default(uuid())
+  name            String         @unique
+  description     String?
+  active          Boolean        @default(true)
+
+  steps           DocumentRouteStep[]
+  documents       Document[]     @relation("DocRoute")
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+model DocumentRouteStep {
+  id              String         @id @default(uuid())
+  routeId         String
+  locationId      String
+  stepOrder       Int
+
+  route           DocumentRoute  @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  location        Location       @relation("LocationRouteStep", fields: [locationId], references: [id], onDelete: Restrict)
+
+  @@unique([routeId, stepOrder])
+  @@index([routeId])
+}
+
+enum DocumentStatus {
+  CREATED
+  READY_TO_SEND
+  IN_TRANSIT
+  AT_TRANSIT
+  RECEIVED
+  VERIFIED
+  COMPLETED
+  REJECTED
+  CANCELLED
+}
+
+model Document {
+  id                  String         @id @default(uuid())
+  documentNumber      String         @unique // e.g., DAG-2026-000001
+  documentTypeId      String
+  description         String?
+  originLocationId    String
+  destinationLocationId String
+  routeId             String?
+  
+  // Who is expected
+  senderName          String?
+  receiverName        String?
+  courierName         String?
+  
+  priority            String?        @default("NORMAL")
+  notes               String?
+  
+  status              DocumentStatus @default(CREATED)
+  
+  // Tracking
+  currentLocationId   String?
+  currentHolder       String?
+  nextExpectedLocationId String?
+  isOverdue           Boolean        @default(false)
+  
+  expectedDeliveryDate DateTime?
+
+  // Relations
+  documentType        DocumentType   @relation("DocType", fields: [documentTypeId], references: [id])
+  originLocation      Location       @relation("DocOrigin", fields: [originLocationId], references: [id])
+  destinationLocation Location       @relation("DocDest", fields: [destinationLocationId], references: [id])
+  route               DocumentRoute? @relation("DocRoute", fields: [routeId], references: [id])
+  
+  events              DocumentEvent[]
+  
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+}
+
+enum EventType {
+  DOCUMENT_CREATED
+  DOCUMENT_READY_TO_SEND
+  HANDOVER_TO_COURIER
+  IN_TRANSIT
+  TRANSIT_RECEIVED
+  TRANSIT_DISPATCHED
+  HANDOVER_FROM_TRANSIT
+  DELIVERED
+  RECEIVED_AT_DESTINATION
+  VERIFIED
+  REJECTED
+  CANCELLED
+}
+
+model DocumentEvent {
+  id              String         @id @default(uuid())
+  documentId      String
+  eventType       EventType
+  userId          String
+  locationId      String
+  notes           String?
+  
+  // App-provided or GPS
+  deviceId        String?
+  latitude        Float?
+  longitude       Float?
+  
+  // For offline sync support
+  syncStatus      String         @default("SYNCED")
+  idempotencyKey  String?        @unique
+  
+  timestamp       DateTime       @default(now())
+
+  document        Document       @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user            User           @relation("EventUser", fields: [userId], references: [id])
+  location        Location       @relation("EventLocation", fields: [locationId], references: [id])
+
+  @@index([documentId])
+  @@index([userId])
+}
+
+model AuditLog {
+  id              String         @id @default(uuid())
+  userId          String?
+  action          String
+  entity          String
+  entityId        String?
+  locationId      String?
+  device          String?
+  ipAddress       String?
+  metadata        String?        // JSON string
+  
+  timestamp       DateTime       @default(now())
+
+  user            User?          @relation("AuditLogUser", fields: [userId], references: [id])
+  location        Location?      @relation("AuditLogLocation", fields: [locationId], references: [id])
+}
+
+model SystemSetting {
+  key             String         @id
+  value           String
+  description     String?
+  updatedAt       DateTime       @updatedAt
+}
