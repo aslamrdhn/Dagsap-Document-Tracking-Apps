@@ -12,27 +12,26 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Use Node.js 18
-      uses: actions/setup-node@v4
+    - name: Use Bun
+      uses: oven-sh/setup-bun@v1
       with:
-        node-version: '18'
-        cache: 'npm'
+        bun-version: latest
         
     - name: Install dependencies
-      run: npm ci
+      run: bun install --frozen-lockfile
       
     - name: Check formatting
-      run: npm run format:check || echo "Format check failed, consider running npm run format"
+      run: bun run format:check || echo "Format check failed, consider running bun run format"
       
     - name: Run linter
-      run: npm run lint
+      run: bun run lint
       
     - name: Run tests
-      run: npm test
+      run: bun test
       env:
         NODE_ENV: test
         JWT_SECRET: test_secret
         JWT_REFRESH_SECRET: test_refresh_secret
         
     - name: Build application
-      run: npm run build
+      run: bun run build

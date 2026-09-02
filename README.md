@@ -18,7 +18,7 @@ A full-stack web and mobile web application for tracking physical documents acro
 ## Prerequisites
 - Node.js (v18+)
 - PostgreSQL server (running locally or cloud)
-- `npm` (Package Manager) - *Note: While the original spec mentioned Bun, this environment currently uses npm.*
+- `bun` (Package Manager) - *Note: The official package manager for this project is Bun.*
 
 ## Installation & Setup
 
@@ -30,7 +30,7 @@ A full-stack web and mobile web application for tracking physical documents acro
 
 2. **Install dependencies**
    \`\`\`bash
-   npm install
+   bun install
    \`\`\`
 
 3. **Configure Environment Variables**
@@ -51,24 +51,24 @@ A full-stack web and mobile web application for tracking physical documents acro
 4. **Initialize Database (Prisma)**
    Run migrations to create the database schema:
    \`\`\`bash
-   npx prisma migrate dev --name init
+   bunx prisma migrate dev --name init
    \`\`\`
    
    *(Optional) Seed the database with initial users and data:*
    \`\`\`bash
-   npx prisma db seed
+   bunx prisma db seed
    \`\`\`
 
 5. **Start the Development Server**
    \`\`\`bash
-   npm run dev
+   bun run dev
    \`\`\`
    The application will be available at `http://localhost:3000`. This starts both the frontend Vite server and backend Express server concurrently.
 
 ## Testing
 This project uses Vitest for unit and integration tests.
 \`\`\`bash
-npm run test
+bun test
 \`\`\`
 
 ## Project Structure

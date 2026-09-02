@@ -62,6 +62,62 @@ router.post('/login', async (req, res, next) => {
 
 /**
  * @swagger
+ * /api/auth/register:
+ *   post:
+ *     summary: Register a new user
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               nik:
+ *                 type: string
+ *               name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Registration successful
+ *       400:
+ *         description: User already exists or validation error
+ */
+router.post('/register', async (req, res, next) => {
+  try {
+    const { nik, name, email, password } = req.body;
+    const existing = await prisma.user.findFirst({
+      where: { OR: [{ email }, { nik }] },
+    });
+    
+    if (existing) {
+      return res.status(400).json({ error: 'Email or NIK already in use' });
+    }
+
+    const hashed = await bcrypt.hash(password, 10);
+    const user = await prisma.user.create({
+      data: {
+        nik,
+        name,
+        email,
+        password: hashed,
+        role: 'USER', // Default role
+      },
+    });
+
+    const { password: _, ...safeUser } = user;
+    res.status(201).json(safeUser);
+  } catch (err: any) {
+    res.status(400).json({ error: 'Registration failed', details: err.message });
+  }
+});
+
+/**
+ * @swagger
  * /api/auth/refresh:
  *   post:
  *     summary: Refresh access token

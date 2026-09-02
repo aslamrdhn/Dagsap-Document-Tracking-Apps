@@ -13,8 +13,13 @@ export const redisClient = new Redis(redisUrl, {
   },
 });
 
+let hasLoggedRedisError = false;
+
 redisClient.on('error', (err) => {
-  logger.warn('Redis connection failed, continuing without cache');
+  if (!hasLoggedRedisError) {
+    logger.warn('Redis connection failed, continuing without cache');
+    hasLoggedRedisError = true;
+  }
 });
 
 redisClient.on('connect', () => {
