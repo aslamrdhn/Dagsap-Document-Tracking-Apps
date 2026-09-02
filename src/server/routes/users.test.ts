@@ -15,6 +15,9 @@ vi.mock('../../server/db', () => ({
       create: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
+    },
+    auditLog: {
+      create: vi.fn().mockResolvedValue({}),
     }
   }
 }));

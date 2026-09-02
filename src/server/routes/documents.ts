@@ -2,9 +2,27 @@ import { Router } from 'express';
 import { prisma } from '../db';
 import { authenticate, AuthRequest } from '../middleware/authMiddleware';
 import { redisClient } from '../redis';
+import { validateRequest } from '../middleware/validateRequest';
+import { auditLogger } from '../middleware/auditLogger';
+import { getIO } from '../socket';
+import { z } from 'zod';
 
 const router = Router();
 router.use(authenticate);
+router.use(auditLogger('Document'));
+
+const createDocumentSchema = z.object({
+  documentTypeId: z.string().min(1, 'Document type is required'),
+  originLocationId: z.string().min(1, 'Origin location is required'),
+  destinationLocationId: z.string().min(1, 'Destination location is required'),
+  description: z.string().optional(),
+  priority: z.enum(['LOW', 'NORMAL', 'HIGH', 'URGENT']).optional().default('NORMAL'),
+});
+
+const updateDocumentSchema = z.object({
+  description: z.string().optional(),
+  priority: z.enum(['LOW', 'NORMAL', 'HIGH', 'URGENT']).optional(),
+});
 
 /**
  * @swagger
@@ -80,25 +98,18 @@ router.get('/types', async (req, res, next) => {
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             properties:
- *               documentTypeId:
- *                 type: string
- *               originLocationId:
- *                 type: string
- *               destinationLocationId:
- *                 type: string
- *               description:
- *                 type: string
- *               priority:
- *                 type: string
+ *             $ref: '#/components/schemas/DocumentInput'
  *     responses:
  *       200:
  *         description: Created document
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/DocumentResponse'
  *       400:
  *         description: Validation error
  */
-router.post('/', async (req: AuthRequest, res, next) => {
+router.post('/', validateRequest({ body: createDocumentSchema }), async (req: AuthRequest, res, next) => {
   try {
     const { documentTypeId, originLocationId, destinationLocationId, description, priority } = req.body;
     const year = new Date().getFullYear();
@@ -144,6 +155,13 @@ router.post('/', async (req: AuthRequest, res, next) => {
 
     if (redisClient.status === 'ready') await redisClient.del('docs:all');
 
+    try {
+      getIO().emit('document:created', {
+        document: doc,
+        message: 'A new document was created'
+      });
+    } catch (e) {}
+
     res.json(doc);
   } catch (err: any) {
     res.status(400).json({ error: 'Creation failed', details: err.message });
@@ -167,6 +185,10 @@ router.post('/', async (req: AuthRequest, res, next) => {
  *     responses:
  *       200:
  *         description: Document details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/DocumentResponse'
  *       404:
  *         description: Document not found
  */
@@ -214,7 +236,7 @@ router.get('/:id', async (req, res, next) => {
  *       400:
  *         description: Validation error
  */
-router.put('/:id', async (req, res, next) => {
+router.put('/:id', validateRequest({ body: updateDocumentSchema }), async (req, res, next) => {
   try {
     const { description, priority } = req.body;
     const doc = await prisma.document.update({
@@ -222,6 +244,14 @@ router.put('/:id', async (req, res, next) => {
       data: { description, priority },
     });
     if (redisClient.status === 'ready') await redisClient.del('docs:all');
+
+    try {
+      getIO().emit('document:updated', {
+        document: doc,
+        message: 'Document metadata was updated'
+      });
+    } catch (e) {}
+
     res.json(doc);
   } catch (err: any) {
     res.status(400).json({ error: 'Update failed', details: err.message });

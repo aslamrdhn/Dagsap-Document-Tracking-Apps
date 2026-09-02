@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { QrCode, FileText } from 'lucide-react';
 import { fetchApi } from '../../lib/api';
 import toast from 'react-hot-toast';
+import { io, Socket } from 'socket.io-client';
 
 export default function Dashboard() {
   const [stats, setStats] = useState({ total: 0, inTransit: 0, atTransit: 0, overdue: 0 });
@@ -10,7 +11,7 @@ export default function Dashboard() {
   const [recentEvents, setRecentEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchDashboardData = () => {
     fetchApi('/api/dashboard')
       .then((res) => res.json())
       .then((data) => {
@@ -23,6 +24,39 @@ export default function Dashboard() {
         toast.error('Failed to load dashboard data');
         setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+
+    const token = localStorage.getItem('access_token');
+    // We connect to the socket server
+    const socket: Socket = io(window.location.origin, {
+      auth: { token }
+    });
+
+    socket.on('connect', () => {
+      console.log('Connected to real-time updates');
+    });
+
+    socket.on('document:scanned', (data) => {
+      toast.success(`Scanned: ${data.document.documentNumber}`);
+      fetchDashboardData();
+    });
+
+    socket.on('document:updated', (data) => {
+      toast.success(`Updated: ${data.document.documentNumber}`);
+      fetchDashboardData();
+    });
+
+    socket.on('document:created', (data) => {
+      toast.success(`New Document: ${data.document.documentNumber}`);
+      fetchDashboardData();
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, []);
 
   return (
@@ -64,8 +98,9 @@ export default function Dashboard() {
             <h2 className="font-bold text-slate-800 text-sm md:text-base">
               Live Monitoring: Active Chain of Custody
             </h2>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden md:inline">
-              Auto-refresh in 4s
+            <span className="text-[10px] font-bold text-green-500 uppercase tracking-widest hidden md:flex items-center">
+              <div className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5 animate-pulse"></div>
+              Live WebSocket connected
             </span>
           </div>
           <div className="flex-1 overflow-auto p-0">

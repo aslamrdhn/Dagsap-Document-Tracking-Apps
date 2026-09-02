@@ -105,7 +105,7 @@ router.post('/register', async (req, res, next) => {
         name,
         email,
         password: hashed,
-        role: 'USER', // Default role
+        role: 'VIEWER', // Default role
       },
     });
 

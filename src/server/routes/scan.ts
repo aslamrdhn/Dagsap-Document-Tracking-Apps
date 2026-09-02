@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../db.js';
 import { authenticate, AuthRequest } from '../middleware/authMiddleware.js';
+import { getIO } from '../socket.js';
 
 const router = Router();
 router.use(authenticate);
@@ -58,6 +59,15 @@ router.post('/', async (req: AuthRequest, res) => {
         userId: user.id,
       },
     });
+
+    try {
+      getIO().emit('document:updated', {
+        document: updatedDoc,
+        message: eventNotes
+      });
+    } catch (e) {
+      // Ignored if socket is not initialized
+    }
 
     res.json(updatedDoc);
   } catch (err: any) {

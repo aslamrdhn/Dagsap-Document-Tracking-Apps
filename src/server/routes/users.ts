@@ -2,9 +2,11 @@ import { Router } from 'express';
 import { prisma } from '../db.js';
 import { authenticate, requireRole } from '../middleware/authMiddleware.js';
 import bcrypt from 'bcryptjs';
+import { auditLogger } from '../middleware/auditLogger';
 
 const router = Router();
 router.use(authenticate);
+router.use(auditLogger('User'));
 
 /**
  * @swagger

@@ -1,10 +1,13 @@
 import express from 'express';
+import { createServer as createHttpServer } from 'http';
 import path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { createServer as createViteServer } from 'vite';
 import { prisma } from './server/db';
+import { validateEnv } from './server/config/validateEnv';
+import { publicLimiter, protectedLimiter } from './server/middleware/rateLimiter';
 
 // Import configuration and middleware
 import { setupSwagger } from './server/swagger';
@@ -12,6 +15,7 @@ import { errorHandler } from './server/middleware/errorMiddleware';
 import { requestLogger } from './server/middleware/loggerMiddleware';
 import { connectRedis } from './server/redis';
 import { logger } from './server/logger';
+import { initSocketIO } from './server/socket';
 
 // Import routes
 import authRoutes from './server/routes/auth';
@@ -22,14 +26,22 @@ import scanRoutes from './server/routes/scan';
 import dashboardRoutes from './server/routes/dashboard';
 import settingsRoutes from './server/routes/settings';
 import mobileRoutes from './server/routes/mobile';
+import metricsRoutes from './server/routes/metrics';
+import { metricsMiddleware } from './server/middleware/metrics';
 
 export async function buildApp() {
+  validateEnv();
+  
   const app = express();
+
+  // Trust the first proxy (Nginx/Cloud Run) to ensure rate limiter gets correct IPs
+  app.set('trust proxy', 1);
 
   // Connect to Redis Cache
   await connectRedis();
 
   // Middleware
+  app.use(metricsMiddleware());
   app.use(cors({ origin: true, credentials: true }));
   app.use(helmet({ contentSecurityPolicy: false })); // Disabled CSP for dev preview ease
   app.use(express.json());
@@ -44,14 +56,16 @@ export async function buildApp() {
     res.json({ status: 'ok' });
   });
 
-  app.use('/api/auth', authRoutes);
-  app.use('/api/users', userRoutes);
-  app.use('/api/locations', locationRoutes);
-  app.use('/api/documents', documentRoutes);
-  app.use('/api/scan', scanRoutes);
-  app.use('/api/dashboard', dashboardRoutes);
-  app.use('/api/settings', settingsRoutes);
-  app.use('/api/mobile', mobileRoutes);
+  // Apply rate limiters
+  app.use('/api/auth', publicLimiter, authRoutes);
+  app.use('/api/users', protectedLimiter, userRoutes);
+  app.use('/api/locations', protectedLimiter, locationRoutes);
+  app.use('/api/documents', protectedLimiter, documentRoutes);
+  app.use('/api/scan', protectedLimiter, scanRoutes);
+  app.use('/api/dashboard', protectedLimiter, dashboardRoutes);
+  app.use('/api/settings', protectedLimiter, settingsRoutes);
+  app.use('/api/mobile', protectedLimiter, mobileRoutes);
+  app.use('/api/metrics', protectedLimiter, metricsRoutes);
 
   // Global Error Handler (must be registered after routes)
   app.use(errorHandler);
@@ -79,9 +93,14 @@ export async function buildApp() {
 
 async function startServer() {
   const app = await buildApp();
+  const server = createHttpServer(app);
+  
+  // Initialize Socket.IO
+  initSocketIO(server);
+
   const PORT = 3000;
 
-  app.listen(PORT, '0.0.0.0', () => {
+  server.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
   });
 }
