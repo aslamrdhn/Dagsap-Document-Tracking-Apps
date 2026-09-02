@@ -29,7 +29,7 @@ export default function Dashboard() {
   useEffect(() => {
     fetchDashboardData();
 
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem('token');
     // We connect to the socket server
     const socket: Socket = io(window.location.origin, {
       auth: { token }
@@ -207,13 +207,31 @@ export default function Dashboard() {
               Quick Scan Document
             </div>
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
                 const form = e.target as HTMLFormElement;
                 const input = form.elements.namedItem('docId') as HTMLInputElement;
-                if (input.value.trim()) {
-                  toast.success(`Scanned document: ${input.value}`);
-                  input.value = '';
+                const docId = input?.value.trim();
+                if (!docId) return;
+
+                const toastId = toast.loading('Memproses dokumen...');
+                try {
+                  const res = await fetchApi('/api/scan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ documentNumber: docId }),
+                  });
+                  if (res.ok) {
+                    const data = await res.json();
+                    toast.success(`Berhasil diproses: ${data.documentNumber} (${data.status})`, { id: toastId });
+                    input.value = '';
+                    fetchDashboardData();
+                  } else {
+                    const err = await res.json();
+                    toast.error(err.error || 'Gagal memproses dokumen', { id: toastId });
+                  }
+                } catch {
+                  toast.error('Gagal terhubung ke server', { id: toastId });
                 }
               }}
               className="flex flex-col gap-3"

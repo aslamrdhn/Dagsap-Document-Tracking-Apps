@@ -28,9 +28,13 @@ async function main() {
     });
   }
 
-  // 2. Create Super Admin User
+  // 2. Create Default Users (Super Admin, Courier, Receiver)
   const superAdminPassword = await bcrypt.hash('admin123', 10);
+  const courierPassword = await bcrypt.hash('courier123', 10);
+  const receiverPassword = await bcrypt.hash('receiver123', 10);
+
   const headOffice = await prisma.location.findUnique({ where: { code: 'OFC' } });
+  const plant1 = await prisma.location.findUnique({ where: { code: 'P01' } });
 
   if (headOffice) {
     await prisma.user.upsert({
@@ -43,14 +47,51 @@ async function main() {
         password: superAdminPassword,
         role: 'SUPER_ADMIN',
         active: true,
-        defaultLocationId: headOffice.id
-      }
+        defaultLocationId: headOffice.id,
+      },
+    });
+
+    await prisma.user.upsert({
+      where: { email: 'courier@dagsap.com' },
+      update: {},
+      create: {
+        nik: 'COU-001',
+        name: 'Budi (Kurir Operasional)',
+        email: 'courier@dagsap.com',
+        password: courierPassword,
+        role: 'COURIER',
+        active: true,
+        defaultLocationId: headOffice.id,
+      },
+    });
+  }
+
+  if (plant1) {
+    await prisma.user.upsert({
+      where: { email: 'receiver@dagsap.com' },
+      update: {},
+      create: {
+        nik: 'REC-001',
+        name: 'Siti (Staff Penerima Plant 1)',
+        email: 'receiver@dagsap.com',
+        password: receiverPassword,
+        role: 'RECEIVER',
+        active: true,
+        defaultLocationId: plant1.id,
+      },
     });
   }
 
   // 3. Document Types
   const docTypes = [
-    'Invoice', 'Faktur Pajak', 'Purchase Order', 'Surat Jalan', 'Finance Document', 'HR Document', 'Legal Document', 'Other'
+    'Invoice',
+    'Faktur Pajak',
+    'Purchase Order',
+    'Surat Jalan',
+    'Finance Document',
+    'HR Document',
+    'Legal Document',
+    'Other',
   ];
 
   for (const docName of docTypes) {
@@ -59,8 +100,46 @@ async function main() {
       update: {},
       create: {
         name: docName,
-        active: true
-      }
+        active: true,
+      },
+    });
+  }
+
+  // 4. Sample Documents for Instant Scanning
+  const invoiceType = await prisma.documentType.findUnique({ where: { name: 'Invoice' } });
+  const suratJalanType = await prisma.documentType.findUnique({ where: { name: 'Surat Jalan' } });
+
+  if (headOffice && plant1 && invoiceType && suratJalanType) {
+    await prisma.document.upsert({
+      where: { documentNumber: 'DAG-2026-000001' },
+      update: {},
+      create: {
+        documentNumber: 'DAG-2026-000001',
+        documentTypeId: invoiceType.id,
+        originLocationId: headOffice.id,
+        destinationLocationId: plant1.id,
+        priority: 'URGENT',
+        description: 'Invoice Pengadaan Mesin Pabrik #1042',
+        status: 'READY_TO_SEND',
+        currentLocationId: headOffice.id,
+        currentHolder: 'Head Office Dispatch',
+      },
+    });
+
+    await prisma.document.upsert({
+      where: { documentNumber: 'DAG-2026-000002' },
+      update: {},
+      create: {
+        documentNumber: 'DAG-2026-000002',
+        documentTypeId: suratJalanType.id,
+        originLocationId: headOffice.id,
+        destinationLocationId: plant1.id,
+        priority: 'NORMAL',
+        description: 'Surat Jalan Logistik Material Batch A-12',
+        status: 'IN_TRANSIT',
+        currentLocationId: headOffice.id,
+        currentHolder: 'Budi (Kurir Operasional)',
+      },
     });
   }
 

@@ -43,10 +43,11 @@ router.post('/login', async (req, res, next) => {
 
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: true, sameSite: 'none',
     });
 
     res.json({
+      refreshToken,
       token,
       user: {
         id: user.id,
@@ -108,7 +109,6 @@ router.post('/register', async (req, res, next) => {
         role: 'VIEWER', // Default role
       },
     });
-
     const { password: _, ...safeUser } = user;
     res.status(201).json(safeUser);
   } catch (err: any) {
@@ -130,7 +130,7 @@ router.post('/register', async (req, res, next) => {
  */
 router.post('/refresh', (req, res, next) => {
   try {
-    const refreshToken = req.cookies?.refreshToken;
+    const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
     if (!refreshToken) return res.status(401).json({ error: 'No refresh token provided' });
 
     const decoded: any = verifyRefreshToken(refreshToken);
@@ -138,7 +138,7 @@ router.post('/refresh', (req, res, next) => {
       return res.status(401).json({ error: 'Invalid refresh token' });
 
     const token = generateToken({ userId: decoded.userId, role: decoded.role });
-    res.json({ token });
+    res.json({ token, refreshToken });
   } catch (err) {
     next(err);
   }
@@ -156,7 +156,7 @@ router.post('/refresh', (req, res, next) => {
  */
 router.post('/logout', (req, res) => {
   res.clearCookie('token');
-  res.clearCookie('refreshToken');
+  res.clearCookie('refreshToken', { secure: true, sameSite: 'none' });
   res.json({ success: true });
 });
 

@@ -19,6 +19,9 @@ export default function Login() {
       });
       const data = await res.json();
       if (res.ok) {
+        if (data.refreshToken) {
+          localStorage.setItem('refreshToken', data.refreshToken);
+        }
         login(data.token, data.user);
         if (['SUPER_ADMIN', 'ADMIN'].includes(data.user.role)) {
           navigate('/admin');
@@ -63,30 +66,66 @@ export default function Login() {
         </div>
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Email / NIK</label>
+            <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1">
+              Email / NIK
+            </label>
             <input
               type="text"
+              required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-red-900 focus:outline-none"
+              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#800000] focus:outline-none text-sm transition-all"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Password</label>
+            <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1">
+              Password
+            </label>
             <input
               type="password"
+              required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-red-900 focus:outline-none"
+              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#800000] focus:outline-none text-sm transition-all"
             />
           </div>
           <button
             type="submit"
-            className="w-full bg-red-900 text-white font-medium p-3 rounded-lg hover:bg-red-950 transition-colors"
+            className="w-full bg-[#800000] text-white font-bold p-3.5 rounded-xl hover:bg-[#600000] transition active:scale-[0.98] shadow-md shadow-[#800000]/20 text-sm"
           >
-            Sign In
+            Sign In / Masuk
           </button>
         </form>
+
+        <div className="mt-6 pt-5 border-t border-gray-100">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center mb-2">
+            Akun Percobaan (1-Klik)
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setEmail('admin@dagsap.com');
+                setPassword('admin123');
+              }}
+              className="p-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg text-left transition-colors"
+            >
+              <div className="text-[11px] font-bold text-gray-800">Super Admin</div>
+              <div className="text-[9px] text-gray-500">Web Dashboard</div>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEmail('courier@dagsap.com');
+                setPassword('courier123');
+              }}
+              className="p-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg text-left transition-colors"
+            >
+              <div className="text-[11px] font-bold text-gray-800">Kurir Driver</div>
+              <div className="text-[9px] text-gray-500">Mobile Scanner</div>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

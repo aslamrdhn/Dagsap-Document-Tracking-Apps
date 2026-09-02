@@ -6,18 +6,62 @@ import { getIO } from '../socket.js';
 const router = Router();
 router.use(authenticate);
 
-router.post('/', async (req: AuthRequest, res) => {
-  const { documentNumber } = req.body;
-  const user = req.user;
+// Lookup document details before or during scanning
+router.get('/lookup/:docNumber', async (req: AuthRequest, res) => {
+  const docNumber = (req.params.docNumber || '').trim();
+  if (!docNumber) {
+    return res.status(400).json({ error: 'Nomor dokumen diperlukan' });
+  }
 
   try {
-    const doc = await prisma.document.findUnique({
-      where: { documentNumber },
-      include: { destinationLocation: true },
+    const doc = await prisma.document.findFirst({
+      where: {
+        documentNumber: { equals: docNumber, mode: 'insensitive' },
+      },
+      include: {
+        documentType: true,
+        originLocation: true,
+        destinationLocation: true,
+        events: {
+          orderBy: { timestamp: 'desc' },
+          take: 5,
+          include: { location: true, user: true },
+        },
+      },
     });
 
     if (!doc) {
-      return res.status(404).json({ error: 'Document not found' });
+      return res.status(404).json({ error: `Dokumen "${docNumber}" tidak ditemukan` });
+    }
+
+    res.json(doc);
+  } catch (err: any) {
+    res.status(500).json({ error: 'Gagal mencari dokumen', details: err.message });
+  }
+});
+
+router.post('/', async (req: AuthRequest, res) => {
+  const documentNumber = (req.body.documentNumber || '').trim();
+  const user = req.user;
+
+  if (!documentNumber) {
+    return res.status(400).json({ error: 'Nomor dokumen diperlukan' });
+  }
+
+  try {
+    const doc = await prisma.document.findFirst({
+      where: {
+        documentNumber: { equals: documentNumber, mode: 'insensitive' },
+      },
+      include: {
+        destinationLocation: true,
+        originLocation: true,
+        documentType: true,
+      },
+    });
+
+    if (!doc) {
+      return res.status(404).json({ error: `Dokumen "${documentNumber}" tidak ditemukan` });
     }
 
     let newStatus = doc.status;
@@ -25,14 +69,14 @@ router.post('/', async (req: AuthRequest, res) => {
 
     if (user.role === 'COURIER') {
       newStatus = 'IN_TRANSIT';
-      eventNotes = `Picked up by courier ${user.name}`;
+      eventNotes = `Diambil & dibawa kurir ${user.name}`;
     } else if (user.role === 'RECEIVER' || user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
-      if (user.defaultLocationId === doc.destinationLocationId) {
+      if (user.defaultLocationId && user.defaultLocationId === doc.destinationLocationId) {
         newStatus = 'COMPLETED';
-        eventNotes = `Received at destination by ${user.name}`;
+        eventNotes = `Diterima di tujuan akhir oleh ${user.name}`;
       } else {
         newStatus = 'AT_TRANSIT';
-        eventNotes = `Received at transit point ${user.defaultLocationId} by ${user.name}`;
+        eventNotes = `Diterima di titik transit/kantor oleh ${user.name}`;
       }
     }
 
@@ -42,6 +86,11 @@ router.post('/', async (req: AuthRequest, res) => {
         status: newStatus,
         currentLocationId: user.defaultLocationId || doc.currentLocationId,
         currentHolder: user.name,
+      },
+      include: {
+        destinationLocation: true,
+        originLocation: true,
+        documentType: true,
       },
     });
 
@@ -54,7 +103,7 @@ router.post('/', async (req: AuthRequest, res) => {
             : newStatus === 'IN_TRANSIT'
               ? 'HANDOVER_TO_COURIER'
               : 'TRANSIT_RECEIVED',
-        locationId: user.defaultLocationId || doc.currentLocationId || '',
+        locationId: user.defaultLocationId || doc.currentLocationId || doc.originLocationId || '',
         notes: eventNotes,
         userId: user.id,
       },
@@ -63,7 +112,11 @@ router.post('/', async (req: AuthRequest, res) => {
     try {
       getIO().emit('document:updated', {
         document: updatedDoc,
-        message: eventNotes
+        message: eventNotes,
+      });
+      getIO().emit('document:scanned', {
+        document: updatedDoc,
+        user: { name: user.name, role: user.role },
       });
     } catch (e) {
       // Ignored if socket is not initialized
