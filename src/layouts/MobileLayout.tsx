@@ -14,12 +14,22 @@ export default function MobileLayout() {
     <div className="flex flex-col h-[100dvh] bg-slate-50 w-full overflow-hidden select-none [-webkit-tap-highlight-color:transparent] antialiased">
       <header className="bg-[#800000] text-white px-5 pb-4 pt-[max(env(safe-area-inset-top),1rem)] flex justify-between items-center shadow-md shrink-0">
         <div className="flex items-center">
-          <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center mr-3">
-            <Package size={18} className="text-white" />
+          <div className="bg-white p-1 rounded-md mr-3 flex items-center justify-center">
+            <img 
+              src="/logo-dark.png" 
+              alt="DAGSAP Logo" 
+              className="h-8 object-contain" 
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                document.getElementById('mobile-fallback-logo')!.style.display = 'flex';
+              }}
+            />
+          </div>
+          <div id="mobile-fallback-logo" className="hidden items-center p-2 border border-dashed border-white/30 rounded bg-black/20 text-center">
+            <p className="text-[9px] text-white/90">Upload <b>logo-dark.png</b><br/>to public folder</p>
           </div>
           <div>
-            <h1 className="font-bold text-lg leading-none tracking-tight">DAGSAP</h1>
-            <p className="text-[10px] text-white/70 uppercase tracking-widest mt-1 font-bold">Field Ops</p>
+            <h1 className="font-bold text-[13px] leading-tight tracking-tight">Dagsap Document<br/>Tracking System</h1>
           </div>
         </div>
         <button onClick={onLogout} className="text-white/70 hover:text-white transition-colors bg-white/10 p-2 rounded-full">

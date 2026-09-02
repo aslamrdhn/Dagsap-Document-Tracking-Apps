@@ -36,12 +36,26 @@ export default function AdminLayout() {
         fixed inset-y-0 left-0 z-50 w-64 bg-[#800000] flex flex-col transition-transform duration-300 ease-in-out
         lg:static lg:translate-x-0 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}
       `}>
-        <div className="p-6 border-b border-white/10 flex justify-between items-center">
-          <div>
-            <div className="text-white font-bold text-xl tracking-tight leading-none">DAGSAP</div>
-            <div className="text-white/60 text-[10px] mt-1 font-medium tracking-widest uppercase">Admin Panel</div>
+        <div className="p-6 border-b border-white/10 flex flex-col items-center text-center relative">
+          <div className="w-full flex justify-center mb-3">
+            <div className="bg-white p-2 rounded-xl shadow-sm">
+              <img 
+                src="/logo-dark.png" 
+                alt="DAGSAP Logo" 
+                className="h-10 lg:h-12 object-contain" 
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  document.getElementById('admin-fallback-logo')!.style.display = 'block';
+                }}
+              />
+            </div>
+            <div id="admin-fallback-logo" className="hidden w-full p-2 border border-dashed border-white/30 rounded text-center bg-black/20">
+              <p className="text-[10px] text-white font-bold uppercase tracking-widest">Logo Missing</p>
+              <p className="text-[9px] text-white/70 mt-1">Upload <b>logo-dark.png</b><br/>to public folder</p>
+            </div>
           </div>
-          <button onClick={closeSidebar} className="lg:hidden text-white/70 hover:text-white">
+          <h2 className="text-white font-bold text-sm leading-tight tracking-wide">Dagsap Document Tracking System</h2>
+          <button onClick={closeSidebar} className="lg:hidden absolute top-4 right-4 text-white/70 hover:text-white">
             <X size={20} />
           </button>
         </div>

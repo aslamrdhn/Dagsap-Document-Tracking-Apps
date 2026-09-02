@@ -26,11 +26,27 @@ router.post("/", requireRole(["SUPER_ADMIN"]), async (req, res) => {
   } catch (err: any) { res.status(400).json({ error: "Creation failed", details: err.message }); }
 });
 
+router.put("/:id", requireRole(["SUPER_ADMIN"]), async (req, res) => {
+  const { nik, name, email, role, defaultLocationId, password } = req.body;
+  try {
+    const data: any = { nik, name, email, role, defaultLocationId };
+    if (password) {
+      data.password = await bcrypt.hash(password, 10);
+    }
+    const user = await prisma.user.update({
+      where: { id: req.params.id },
+      data
+    });
+    const { password: _, ...safeUser } = user;
+    res.json(safeUser);
+  } catch (err: any) { res.status(400).json({ error: "Update failed", details: err.message }); }
+});
+
 router.delete("/:id", requireRole(["SUPER_ADMIN"]), async (req, res) => {
   try {
     await prisma.user.delete({ where: { id: req.params.id } });
     res.json({ success: true });
-  } catch (err) { res.status(400).json({ error: "Delete failed" }); }
+  } catch (err) { res.status(400).json({ error: "Delete failed. User might be tied to history." }); }
 });
 
 export default router;

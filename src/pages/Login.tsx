@@ -36,9 +36,23 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="max-w-sm w-full bg-white p-8 rounded-2xl shadow-xl">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-red-900">DAGSAP</h1>
-          <p className="text-gray-500 text-sm mt-1">Document Tracking System</p>
+        <div className="text-center mb-8 flex flex-col items-center">
+          <div className="bg-white p-2 rounded-xl inline-block mb-4">
+            <img 
+              src="/logo-light.png" 
+              alt="DAGSAP Logo" 
+              className="w-48 max-w-full object-contain drop-shadow-sm" 
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                document.getElementById('login-fallback')!.style.display = 'flex';
+              }}
+            />
+          </div>
+          <div id="login-fallback" className="hidden flex-col items-center justify-center w-full h-32 bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg mb-4 text-center p-4">
+            <p className="text-sm font-bold text-gray-500">Logo belum diupload</p>
+            <p className="text-xs text-gray-400 mt-1">Upload gambar ke folder <b>public</b> dengan nama <b>logo-light.png</b></p>
+          </div>
+          <h1 className="text-xl font-bold text-gray-800 leading-tight">Dagsap Document Tracking System</h1>
         </div>
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
